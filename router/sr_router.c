@@ -295,10 +295,27 @@ void sr_handlepacket(struct sr_instance* sr,
 
   /*************************************************************************/
   /* TODO: Handle packets                                                  */
-
+  
+  //sr_send_packet (sr_vns_comm) - Send packet
+  //sr_arpreq *sr_arpcache_queuereq (sr_arpcache) - Add to the arp request queue
 
 
   /*************************************************************************/
 
 }/* end sr_ForwardPacket */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
