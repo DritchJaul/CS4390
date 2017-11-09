@@ -171,7 +171,8 @@ void sr_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req,
       /* TODO: send ICMP host uncreachable to the source address of all    */
       /* packets waiting on this request                                   */
 
-
+	  
+      //sr_send_packet (sr_vns_comm) - Send packet
 
 
       /*********************************************************************/
@@ -250,7 +251,7 @@ void sr_handlepacket_arp(struct sr_instance *sr, uint8_t *pkt,
       /*********************************************************************/
       /* TODO: send all packets on the req->packets linked list            */
 
-
+      //sr_send_packet (sr_vns_comm) - Send packet
 
       /*********************************************************************/
 
@@ -293,8 +294,57 @@ void sr_handlepacket(struct sr_instance* sr,
 
   printf("*** -> Received packet of length %d \n",len);
 
+  
   /*************************************************************************/
   /* TODO: Handle packets                                                  */
+  
+  
+  //Check if packet is ARP request/replay
+  //  if it is request, ???
+  //  if it is reply, redirect packet to handle arp pkt
+  
+  
+  
+  //Check the packet to see if its even long enough
+  if (len < (sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) ))
+  {
+    printf("Packet is too short => drop packet\n"); // <---- send ICMP?
+    return;
+  }
+  sr_ip_hdr_t *iphdr = (sr_ip_hdr_t *)(pkt + sizeof(sr_ethernet_hdr_t));
+  
+  
+  //Determine the checksum of the packet
+  char *bytes = (char *) iphdr;
+  int chksum = checksum(iphdr);
+  if (~chksum != 0){
+	printf("IP Checksum error => drop packet\n"); // <---- send ICMP?
+    return;
+  }
+  
+  
+  //Decrement the TTL by one
+  if ((&iphdr).ip_ttl > 1){
+    (&iphdr).ip_ttl -= 1;
+  }else{
+	printf("TTL expire on pkt\n"); // <---- send ICMP?
+    return;
+  }
+  
+  
+  //Recompute checksum
+  chksum = checksum(iphdr);
+  bytes[10] = chksum & 0xFF;
+  bytes[11] = (chksum >> 8) & 0xFF;
+  
+  
+  //Find the entry in the routing table that has the longest matching prefix IP
+  
+  //Check ARP cache for next-hop MAC address that goes to the next-hop IP
+  //  if its there, send the packet
+  //  if its NOT there, send an ARP request for the next-hop IP
+  //    add packets to queue of packets waiting on this ARP
+  
   
   //sr_send_packet (sr_vns_comm) - Send packet
   //sr_arpreq *sr_arpcache_queuereq (sr_arpcache) - Add to the arp request queue
@@ -307,8 +357,25 @@ void sr_handlepacket(struct sr_instance* sr,
 
 
 
-
-
+// Calculate checksum all the elements (as 16bit ints) in an IP header
+int checksum( sr_ip_hdr_t *iphdr ){
+  int chksum = 0; 	// Begin the checksum count at 0.
+					// Use int instead of 16bit for overflow addition
+  char *bytes = (char *) iphdr; // turn the header into a list of bytes
+  
+  for (int i = 0; i < sizeof(iphdr) / 2; i++){ // For every pair of bytes (16bit)
+	if (i != 5){ // Except for the ckecksum field (assumed to be 0)
+		// Add each pair of bytes as if they were a 16bit int
+		chksum += (((int)bytes[2 * i]) << 8) + (int)(bytes[(2 * i) + 1])
+		//				 upper byte          +       lower byte
+	}
+  }
+  //	   lower part of sum + accumulated overflow >> 16
+  chksum = (chksum & 0xFFFF) + ((chksum >> 16) & 0xFFFF); 	//add the overflow back
+  chksum = (chksum & 0xFFFF) + ((chksum >> 16) & 0xFFFF); 	//shouldn't do anything
+															//added incase double overflow
+  return chksum;
+}
 
 
 
