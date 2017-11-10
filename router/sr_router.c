@@ -251,10 +251,16 @@ void sr_handlepacket_arp(struct sr_instance *sr, uint8_t *pkt,
       /*********************************************************************/
       /* TODO: send all packets on the req->packets linked list            */
       
+	  
+	  
       for(sr_packet& packet : req->packets)
       {
 	    sr_send_packet(sr, packet->buf, packet.len, packet->iface) 
       }
+	  
+	  
+	  
+	  
       /*sr_send_packet (sr_vns_comm) - Send packet*/
 
       /*********************************************************************/
@@ -309,27 +315,29 @@ void sr_handlepacket(struct sr_instance* sr,
   
   
   
-  //Check the packet to see if its even long enough*/
+  /*Check the packet to see if its even long enough*/
   if (len < (sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) ))
   {
     printf("Packet is too short => drop packet\n"); /* <---- send ICMP?*/
     return;
   }
+  
+  /*	extract the ip header (iphdr) from the packet.
+   *	based on code from sr_handlepacket_arp where the arp header is extracted	*/
   sr_ip_hdr_t *iphdr = (sr_ip_hdr_t *)(pkt + sizeof(sr_ethernet_hdr_t));
   
   
   /*Determine the checksum of the packet*/
-  char *bytes = (char *) iphdr;
   int chksum = checksum(iphdr);
-  if (~chksum != 0){
+  if (~chksum != 0){ /* One's compliment of chksum sould be 0 */
 	printf("IP Checksum error => drop packet\n"); /* <---- send ICMP?*/
     return;
   }
   
   
   /*Decrement the TTL by one*/
-  if ((&iphdr).ip_ttl > 1){
-    (&iphdr).ip_ttl -= 1;
+  if ((iphdr->ip_ttl) > 1){ 
+    (iphdr->ip_ttl) -= 1;
   }else{
 	printf("TTL expire on pkt\n"); /* <---- send ICMP?*/
     return;
@@ -338,8 +346,8 @@ void sr_handlepacket(struct sr_instance* sr,
   
   /*Recompute checksum*/
   chksum = checksum(iphdr);
-  bytes[sizeof(sr_ethernet_hdr_t) + 10] = chksum & 0xFF;
-  bytes[sizeof(sr_ethernet_hdr_t) + 11] = (chksum >> 8) & 0xFF;
+  bytes[sizeof(sr_ethernet_hdr_t) + 11] = chksum & 0xFF;
+  bytes[sizeof(sr_ethernet_hdr_t) + 10] = (chksum >> 8) & 0xFF;
   
   
   /*Find the entry in the routing table that has the longest matching prefix IP*/
@@ -364,21 +372,20 @@ void sr_handlepacket(struct sr_instance* sr,
 /* Calculate checksum all the elements (as 16bit ints) in an IP header*/
 int checksum( sr_ip_hdr_t *iphdr ){
   int chksum = 0; 	/* Begin the checksum count at 0.*/
-					/* Use int instead of 16bit for overflow addition*/
-  char *bytes = (char *) iphdr; /* turn the header into a list of bytes*/
+					/* Use int32 instead of short16 for ease of overflow addition*/
+  char *bytes = (char *) iphdr; /* turn the header into a list of bytes */
   
   for (int i = 0; i < sizeof(iphdr) / 2; i++){ /* For every pair of bytes (16bit)*/
 	if (i != 5){ /* Except for the ckecksum field (assumed to be 0)*/
 		/* Add each pair of bytes as if they were a 16bit int*/
-		chksum += (((int) bytes[sizeof(sr_ethernet_hdr_t) +  2 * i]) << 8)+
-					(int)(bytes[sizeof(sr_ethernet_hdr_t) + (2 * i) + 1])
-		/*				 upper byte          +       lower byte*/
+		chksum += (((int) bytes[sizeof(sr_ethernet_hdr_t) +  2 * i]) << 8) + (int)(bytes[sizeof(sr_ethernet_hdr_t) + (2 * i) + 1])
+		/*				  upper byte                                       +       lower byte    */
 	}
   }
   /*	   lower part of sum + accumulated overflow >> 16*/
   chksum = (chksum & 0xFFFF) + ((chksum >> 16) & 0xFFFF); 	/*add the overflow back*/
-  chksum = (chksum & 0xFFFF) + ((chksum >> 16) & 0xFFFF); 	/*shouldn't do anything*/
-															/*added incase double overflow*/
+  chksum = (chksum & 0xFFFF) + ((chksum >> 16) & 0xFFFF); 	/*shouldn't do anything, added in case of double overflow*/
+  
   return chksum;
 }
 
