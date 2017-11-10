@@ -250,7 +250,11 @@ void sr_handlepacket_arp(struct sr_instance *sr, uint8_t *pkt,
     {
       /*********************************************************************/
       /* TODO: send all packets on the req->packets linked list            */
-
+      
+      for(sr_packet& packet : req->packets)
+      {
+	sr_send_packet(sr, packet->buf, packet.len, packet->iface) 
+      }
       //sr_send_packet (sr_vns_comm) - Send packet
 
       /*********************************************************************/
