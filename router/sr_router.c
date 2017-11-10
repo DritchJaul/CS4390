@@ -334,8 +334,8 @@ void sr_handlepacket(struct sr_instance* sr,
   
   //Recompute checksum
   chksum = checksum(iphdr);
-  bytes[10] = chksum & 0xFF;
-  bytes[11] = (chksum >> 8) & 0xFF;
+  bytes[sizeof(sr_ethernet_hdr_t) + 10] = chksum & 0xFF;
+  bytes[sizeof(sr_ethernet_hdr_t) + 11] = (chksum >> 8) & 0xFF;
   
   
   //Find the entry in the routing table that has the longest matching prefix IP
@@ -366,7 +366,8 @@ int checksum( sr_ip_hdr_t *iphdr ){
   for (int i = 0; i < sizeof(iphdr) / 2; i++){ // For every pair of bytes (16bit)
 	if (i != 5){ // Except for the ckecksum field (assumed to be 0)
 		// Add each pair of bytes as if they were a 16bit int
-		chksum += (((int)bytes[2 * i]) << 8) + (int)(bytes[(2 * i) + 1])
+		chksum += (((int) bytes[sizeof(sr_ethernet_hdr_t) +  2 * i]) << 8)+
+					(int)(bytes[sizeof(sr_ethernet_hdr_t) + (2 * i) + 1])
 		//				 upper byte          +       lower byte
 	}
   }
