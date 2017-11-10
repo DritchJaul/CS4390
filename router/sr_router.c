@@ -172,7 +172,7 @@ void sr_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req,
       /* packets waiting on this request                                   */
 
 	  
-      //sr_send_packet (sr_vns_comm) - Send packet
+      /*sr_send_packet (sr_vns_comm) - Send packet*/
 
 
       /*********************************************************************/
@@ -255,7 +255,7 @@ void sr_handlepacket_arp(struct sr_instance *sr, uint8_t *pkt,
       {
 	    sr_send_packet(sr, packet->buf, packet.len, packet->iface) 
       }
-      //sr_send_packet (sr_vns_comm) - Send packet
+      /*sr_send_packet (sr_vns_comm) - Send packet*/
 
       /*********************************************************************/
 
@@ -303,55 +303,55 @@ void sr_handlepacket(struct sr_instance* sr,
   /* TODO: Handle packets                                                  */
   
   
-  //Check if packet is ARP request/replay
-  //  if it is request, ???
-  //  if it is reply, redirect packet to handle arp pkt
+  /*Check if packet is ARP request/replay*/
+  /*  if it is request, ???*/
+  /*  if it is reply, redirect packet to handle arp pkt*/
   
   
   
-  //Check the packet to see if its even long enough
+  //Check the packet to see if its even long enough*/
   if (len < (sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) ))
   {
-    printf("Packet is too short => drop packet\n"); // <---- send ICMP?
+    printf("Packet is too short => drop packet\n"); /* <---- send ICMP?*/
     return;
   }
   sr_ip_hdr_t *iphdr = (sr_ip_hdr_t *)(pkt + sizeof(sr_ethernet_hdr_t));
   
   
-  //Determine the checksum of the packet
+  /*Determine the checksum of the packet*/
   char *bytes = (char *) iphdr;
   int chksum = checksum(iphdr);
   if (~chksum != 0){
-	printf("IP Checksum error => drop packet\n"); // <---- send ICMP?
+	printf("IP Checksum error => drop packet\n"); /* <---- send ICMP?*/
     return;
   }
   
   
-  //Decrement the TTL by one
+  /*Decrement the TTL by one*/
   if ((&iphdr).ip_ttl > 1){
     (&iphdr).ip_ttl -= 1;
   }else{
-	printf("TTL expire on pkt\n"); // <---- send ICMP?
+	printf("TTL expire on pkt\n"); /* <---- send ICMP?*/
     return;
   }
   
   
-  //Recompute checksum
+  /*Recompute checksum*/
   chksum = checksum(iphdr);
   bytes[sizeof(sr_ethernet_hdr_t) + 10] = chksum & 0xFF;
   bytes[sizeof(sr_ethernet_hdr_t) + 11] = (chksum >> 8) & 0xFF;
   
   
-  //Find the entry in the routing table that has the longest matching prefix IP
+  /*Find the entry in the routing table that has the longest matching prefix IP*/
   
-  //Check ARP cache for next-hop MAC address that goes to the next-hop IP
-  //  if its there, send the packet
-  //  if its NOT there, send an ARP request for the next-hop IP
-  //    add packets to queue of packets waiting on this ARP
+  /*Check ARP cache for next-hop MAC address that goes to the next-hop IP*/
+  /*  if its there, send the packet*/
+  /*  if its NOT there, send an ARP request for the next-hop IP*/
+  /*    add packets to queue of packets waiting on this ARP*/
   
   
-  //sr_send_packet (sr_vns_comm) - Send packet
-  //sr_arpreq *sr_arpcache_queuereq (sr_arpcache) - Add to the arp request queue
+  /*sr_send_packet (sr_vns_comm) - Send packet*/
+  /*sr_arpreq *sr_arpcache_queuereq (sr_arpcache) - Add to the arp request queue*/
 
 
   /*************************************************************************/
@@ -361,24 +361,24 @@ void sr_handlepacket(struct sr_instance* sr,
 
 
 
-// Calculate checksum all the elements (as 16bit ints) in an IP header
+/* Calculate checksum all the elements (as 16bit ints) in an IP header*/
 int checksum( sr_ip_hdr_t *iphdr ){
-  int chksum = 0; 	// Begin the checksum count at 0.
-					// Use int instead of 16bit for overflow addition
-  char *bytes = (char *) iphdr; // turn the header into a list of bytes
+  int chksum = 0; 	/* Begin the checksum count at 0.*/
+					/* Use int instead of 16bit for overflow addition*/
+  char *bytes = (char *) iphdr; /* turn the header into a list of bytes*/
   
-  for (int i = 0; i < sizeof(iphdr) / 2; i++){ // For every pair of bytes (16bit)
-	if (i != 5){ // Except for the ckecksum field (assumed to be 0)
-		// Add each pair of bytes as if they were a 16bit int
+  for (int i = 0; i < sizeof(iphdr) / 2; i++){ /* For every pair of bytes (16bit)*/
+	if (i != 5){ /* Except for the ckecksum field (assumed to be 0)*/
+		/* Add each pair of bytes as if they were a 16bit int*/
 		chksum += (((int) bytes[sizeof(sr_ethernet_hdr_t) +  2 * i]) << 8)+
 					(int)(bytes[sizeof(sr_ethernet_hdr_t) + (2 * i) + 1])
-		//				 upper byte          +       lower byte
+		/*				 upper byte          +       lower byte*/
 	}
   }
-  //	   lower part of sum + accumulated overflow >> 16
-  chksum = (chksum & 0xFFFF) + ((chksum >> 16) & 0xFFFF); 	//add the overflow back
-  chksum = (chksum & 0xFFFF) + ((chksum >> 16) & 0xFFFF); 	//shouldn't do anything
-															//added incase double overflow
+  /*	   lower part of sum + accumulated overflow >> 16*/
+  chksum = (chksum & 0xFFFF) + ((chksum >> 16) & 0xFFFF); 	/*add the overflow back*/
+  chksum = (chksum & 0xFFFF) + ((chksum >> 16) & 0xFFFF); 	/*shouldn't do anything*/
+															/*added incase double overflow*/
   return chksum;
 }
 
