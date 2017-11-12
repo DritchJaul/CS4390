@@ -251,11 +251,10 @@ void sr_handlepacket_arp(struct sr_instance *sr, uint8_t *pkt,
       /*********************************************************************/
       /* TODO: send all packets on the req->packets linked list            */
       
-	  
-	  
-      for(sr_packet& packet : req->packets)
+      struct sr_packet *packet = req->packets;	  
+      while(packet != NULL)
       {
-	    sr_send_packet(sr, packet->buf, packet.len, packet->iface) 
+	    sr_send_packet(sr, packet->buf, packet->len, packet->iface);
       }
 	  
 	  
@@ -324,7 +323,7 @@ void sr_handlepacket(struct sr_instance* sr,
   
   /*	extract the ip header (iphdr) from the packet.
    *	based on code from sr_handlepacket_arp where the arp header is extracted	*/
-  sr_ip_hdr_t *iphdr = (sr_ip_hdr_t *)(pkt + sizeof(sr_ethernet_hdr_t));
+  sr_ip_hdr_t *iphdr = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
   
   
   /*Determine the checksum of the packet*/
@@ -346,6 +345,7 @@ void sr_handlepacket(struct sr_instance* sr,
   
   /*Recompute checksum*/
   chksum = checksum(iphdr);
+  char *bytes = (char *) iphdr;
   bytes[sizeof(sr_ethernet_hdr_t) + 11] = chksum & 0xFF;
   bytes[sizeof(sr_ethernet_hdr_t) + 10] = (chksum >> 8) & 0xFF;
   
@@ -374,11 +374,11 @@ int checksum( sr_ip_hdr_t *iphdr ){
   int chksum = 0; 	/* Begin the checksum count at 0.*/
 					/* Use int32 instead of short16 for ease of overflow addition*/
   char *bytes = (char *) iphdr; /* turn the header into a list of bytes */
-  
-  for (int i = 0; i < sizeof(iphdr) / 2; i++){ /* For every pair of bytes (16bit)*/
+  int i = 0;
+  for (; i < sizeof(iphdr) / 2; i++){ /* For every pair of bytes (16bit)*/
 	if (i != 5){ /* Except for the ckecksum field (assumed to be 0)*/
 		/* Add each pair of bytes as if they were a 16bit int*/
-		chksum += (((int) bytes[sizeof(sr_ethernet_hdr_t) +  2 * i]) << 8) + (int)(bytes[sizeof(sr_ethernet_hdr_t) + (2 * i) + 1])
+		chksum += (((int) bytes[sizeof(sr_ethernet_hdr_t) +  2 * i]) << 8) + (int)(bytes[sizeof(sr_ethernet_hdr_t) + (2 * i) + 1]);
 		/*				  upper byte                                       +       lower byte    */
 	}
   }
