@@ -308,10 +308,15 @@ void sr_handlepacket(struct sr_instance* sr,
   /* TODO: Handle packets                                                  */
   
   
-  /*Check if packet is ARP request/replay*/
-  /*  if it is request, ???*/
-  /*  if it is reply, redirect packet to handle arp pkt*/
+  /* Extract the ethernet header from the packet */
+  sr_ethernet_hdr_t *ethhdr = (sr_ethernet_hdr_t *)(packet);
   
+  /*Check if packet is ARP request/replay*/
+  if (ethhdr[12] == 0x08 && ethhdr[13] == 0x06){
+	/* If it is, send the packet to handlepacket_arp */
+	sr_handlepacket_arp(sr, packet, len, interface);
+	return;
+  }
   
   
   /*Check the packet to see if its even long enough*/
@@ -321,10 +326,10 @@ void sr_handlepacket(struct sr_instance* sr,
     return;
   }
   
+
   /*	extract the ip header (iphdr) from the packet.
    *	based on code from sr_handlepacket_arp where the arp header is extracted	*/
   sr_ip_hdr_t *iphdr = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
-  
   
   /*Determine the checksum of the packet*/
   int chksum = checksum(iphdr);
@@ -338,16 +343,18 @@ void sr_handlepacket(struct sr_instance* sr,
   if ((iphdr->ip_ttl) > 1){ 
     (iphdr->ip_ttl) -= 1;
   }else{
-	printf("TTL expire on pkt\n"); /* <---- send ICMP?*/
+	printf("TTL expire on pkt\n"); /* <---- send ICMP: Type 11 - time exceeded */
     return;
   }
   
   
-  /*Recompute checksum*/
+  /*Recompute new checksum*/
+  bytes[10] = 0x00;
+  bytes[11] = 0x00;  
   chksum = checksum(iphdr);
   char *bytes = (char *) iphdr;
-  bytes[sizeof(sr_ethernet_hdr_t) + 11] = chksum & 0xFF;
-  bytes[sizeof(sr_ethernet_hdr_t) + 10] = (chksum >> 8) & 0xFF;
+  bytes[10] = ~chksum & 0xFF;
+  bytes[11] = (~chksum >> 8) & 0xFF;
   
   
   /*Find the entry in the routing table that has the longest matching prefix IP*/
@@ -376,10 +383,9 @@ int checksum( sr_ip_hdr_t *iphdr ){
   char *bytes = (char *) iphdr; /* turn the header into a list of bytes */
   int i = 0;
   for (; i < sizeof(iphdr) / 2; i++){ /* For every pair of bytes (16bit)*/
-	if (i != 5){ /* Except for the ckecksum field (assumed to be 0)*/
-		/* Add each pair of bytes as if they were a 16bit int*/
-		chksum += (((int) bytes[sizeof(sr_ethernet_hdr_t) +  2 * i]) << 8) + (int)(bytes[sizeof(sr_ethernet_hdr_t) + (2 * i) + 1]);
-		/*				  upper byte                                       +       lower byte    */
+	/* Add each pair of bytes as if they were a 16bit int*/
+	chksum += (((int) bytes[2 * i]) << 8) + (int)(bytes[(2 * i) + 1]);
+	/*				  upper byte                                       +       lower byte    */
 	}
   }
   /*	   lower part of sum + accumulated overflow >> 16*/
