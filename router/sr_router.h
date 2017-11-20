@@ -69,7 +69,7 @@ void sr_init(struct sr_instance* );
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
 void sr_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req,
     struct sr_if *out_iface);
-int checksum(sr_ip_hdr_t *iphdr);
+uint16_t checksum(sr_ip_hdr_t *iphdr);
 
 /* -- sr_if.c -- */
 void sr_add_interface(struct sr_instance* , const char* );

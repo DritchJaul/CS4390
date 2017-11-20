@@ -311,10 +311,13 @@ void sr_handlepacket(struct sr_instance* sr,
   /* Extract the ethernet header from the packet */
   sr_ethernet_hdr_t *ethhdr = (sr_ethernet_hdr_t *)(packet);
   
-  /*Check if packet is ARP request/replay*/
-  if (ethhdr[12] == 0x08 && ethhdr[13] == 0x06){
+  struct sr_if *src_iface = sr_get_interface(sr, interface);
+  
+  uint16_t etype = (*((unsigned char*) ethhdr + 12) << 8) + *((unsigned char *) ethhdr + 13);
+  /*Check if packet is ARP request/reply*/
+  if (etype == 0x0806){
 	/* If it is, send the packet to handlepacket_arp */
-	sr_handlepacket_arp(sr, packet, len, interface);
+	sr_handlepacket_arp(sr, packet, len, src_iface);
 	return;
   }
   
@@ -331,9 +334,11 @@ void sr_handlepacket(struct sr_instance* sr,
    *	based on code from sr_handlepacket_arp where the arp header is extracted	*/
   sr_ip_hdr_t *iphdr = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
   
+  printf("Gonna run checksum on IP headers...\n"); 
   /*Determine the checksum of the packet*/
-  int chksum = checksum(iphdr);
-  if (~chksum != 0){ /* One's compliment of chksum sould be 0 */
+  uint16_t chksum = ~checksum(iphdr);  
+
+  if (chksum != 0){ /* One's compliment of chksum sould be 0 */
 	printf("IP Checksum error => drop packet\n"); /* <---- send ICMP?*/
     return;
   }
@@ -347,14 +352,13 @@ void sr_handlepacket(struct sr_instance* sr,
     return;
   }
   
-  
+  unsigned char *bytes = (unsigned char*) iphdr;
   /*Recompute new checksum*/
-  bytes[10] = 0x00;
-  bytes[11] = 0x00;  
-  chksum = checksum(iphdr);
-  char *bytes = (char *) iphdr;
-  bytes[10] = ~chksum & 0xFF;
-  bytes[11] = (~chksum >> 8) & 0xFF;
+  bytes[10] = 0;
+  bytes[11] = 0;
+  chksum = ~checksum(iphdr);
+  bytes[10] = (chksum & 0xFF00) >> 8;
+  bytes[11] = chksum & 0x00FF;
   
   
   /*Find the entry in the routing table that has the longest matching prefix IP*/
@@ -377,30 +381,32 @@ void sr_handlepacket(struct sr_instance* sr,
 
 
 /* Calculate checksum all the elements (as 16bit ints) in an IP header*/
-int checksum( sr_ip_hdr_t *iphdr ){
-  int chksum = 0; 	/* Begin the checksum count at 0.*/
-					/* Use int32 instead of short16 for ease of overflow addition*/
-  char *bytes = (char *) iphdr; /* turn the header into a list of bytes */
+uint16_t checksum( sr_ip_hdr_t *iphdr ){
+  uint32_t chksum = 0; 	/* Begin the checksum count at 0.*/
+					/* Use uint32 instead of short16 for ease of overflow addition*/
+
+  
+  printf("Beginning checksum computation\n\n");
+  
   int i = 0;
-  for (; i < sizeof(iphdr) / 2; i++){ /* For every pair of bytes (16bit)*/
+  printf("Ip header has %d bytes\n", (int)sizeof(sr_ip_hdr_t));
+  for (; i < sizeof(sr_ip_hdr_t) / 2; i++){
+        /* For every pair of bytes (16bit)*/
 	/* Add each pair of bytes as if they were a 16bit int*/
-	chksum += (((int) bytes[2 * i]) << 8) + (int)(bytes[(2 * i) + 1]);
+	uint16_t byte1 = *((unsigned char*) iphdr + 2*i);
+	uint16_t byte2 = *((unsigned char*) iphdr + 2*i+1);
+	printf("Byte %d - %02x \n", (2*i), byte1);
+	printf("Byte %d - %02x \n", (2*i+1), byte2);
+	chksum += (byte1 << 8) + byte2;
+	printf("Current checksum - %08x \n", chksum);
 	/*				  upper byte                                       +       lower byte    */
 	}
-  }
+
   /*	   lower part of sum + accumulated overflow >> 16*/
   chksum = (chksum & 0xFFFF) + ((chksum >> 16) & 0xFFFF); 	/*add the overflow back*/
+  printf("Checksum after 1 overflow check - %08x \n", chksum);
   chksum = (chksum & 0xFFFF) + ((chksum >> 16) & 0xFFFF); 	/*shouldn't do anything, added in case of double overflow*/
-  
-  return chksum;
+  printf("Checksum after 2 overflow checks - %08x \n", chksum);
+  uint16_t out = chksum;
+  return out;
 }
-
-
-
-
-
-
-
-
-
-
