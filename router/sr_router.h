@@ -69,7 +69,12 @@ void sr_init(struct sr_instance* );
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
 void sr_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req,
     struct sr_if *out_iface);
-uint16_t checksum(sr_ip_hdr_t *iphdr);
+int is_packet_addressed_to_router(struct sr_instance *sr, uint8_t *packet, char *interface);
+int is_broadcast_packet(struct sr_ethernet_hdr *ethernet_hdr);
+int is_icmp(uint8_t ip_protocol);
+char *get_longest_prefix_match(struct sr_instance *sr, uint32_t ip_dest);
+void send_icmp_message(struct sr_instance *sr, struct sr_packet *curr_packet, uint8_t type, uint8_t code);
+void send_echo_reply(struct sr_instance *sr, struct sr_packet *curr_packet);
 
 /* -- sr_if.c -- */
 void sr_add_interface(struct sr_instance* , const char* );
