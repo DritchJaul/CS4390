@@ -51,7 +51,7 @@ struct sr_arpentry *sr_arpcache_lookup(struct sr_arpcache *cache, uint32_t ip) {
     for (i = 0; i < SR_ARPCACHE_SZ; i++) {
         if ((cache->entries[i].valid) && (cache->entries[i].ip == ip)) {
             entry = &(cache->entries[i]);
-        }
+	}
     }
     
     /* Must return a copy b/c another thread could jump in and modify

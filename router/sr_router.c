@@ -245,11 +245,10 @@ void sr_handlepacket_arp(struct sr_instance *sr, uint8_t *pkt,
     /* Check if reply is for one of my interfaces */
     if (arphdr->ar_tip != src_iface->ip)
     { break; }
-
+    
     /* Update ARP cache with contents of ARP reply */
     struct sr_arpreq *req = sr_arpcache_insert(&(sr->cache), arphdr->ar_sha, 
         arphdr->ar_sip);
-
     /* Process pending ARP request entry, if there is one */
     if (req != NULL)
     {
@@ -259,7 +258,19 @@ void sr_handlepacket_arp(struct sr_instance *sr, uint8_t *pkt,
       struct sr_packet *packet = req->packets;	  
       while(packet != NULL)
       {
-	    sr_send_packet(sr, packet->buf, packet->len, packet->iface);
+	    /*There should now be an arp entry*/
+	    sr_ethernet_hdr_t* e_hdr = (sr_ethernet_hdr_t *) (packet->buf);
+	    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t *) (packet->buf + sizeof(sr_ethernet_hdr_t));
+	    struct sr_arpentry* arp_entry = sr_arpcache_lookup(&(sr->cache), ip_hdr->ip_dst);
+	    if(arp_entry != NULL)
+	    {
+		/*Update ethernet headers*/
+		memcpy(e_hdr->ether_shost, (sr_get_interface(sr, packet->iface)->addr), ETHER_ADDR_LEN);
+		memcpy(e_hdr->ether_dhost, arp_entry->mac, ETHER_ADDR_LEN);
+	    	sr_send_packet(sr, packet->buf, packet->len, packet->iface);
+	    }
+	    packet = packet->next;
+	    req->packets = packet;
       }
 	  
 	  
@@ -390,7 +401,6 @@ void sr_handlepacket(struct sr_instance* sr,
            return;
         }
 
-	printf("TELL ME THIS IS WORKING AS;DLFKJA;LSDKFJ;ALKSDJF;LAKSDJF;LAKSDJF");
         destination->ip_ttl--;
         if(destination->ip_ttl == 0){
            struct sr_packet *curr_packet = (struct sr_packet *)malloc(sizeof(struct sr_packet));
