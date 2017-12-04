@@ -365,7 +365,7 @@ void sr_handlepacket(struct sr_instance* sr,
                curr_packet->buf = packet;
                curr_packet->len = len;
                curr_packet->iface = interface;
-               send_echo_reply(sr, curr_packet);
+               icmp_sender(sr,curr_packet,0,0);
                free(curr_packet);
                
             }
@@ -622,58 +622,6 @@ void icmp_sender(struct sr_instance *sr, struct sr_packet *curr_packet, uint8_t 
    printf("Sending packet over interface: %s of size: %d\n", sending_iface, len);
    print_hdrs(packet, len);
    sr_send_packet(sr, packet, len, sending_iface);
-
-   free(packet);
-}
-
-/*send echo reply messages*/
-void send_echo_reply(struct sr_instance *sr, struct sr_packet *curr_packet){
-    
-   int len = 60 + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t);
-   uint8_t *packet = (uint8_t *)malloc(len); 
-    
-   sr_ethernet_hdr_t *ether_hdr = (sr_ethernet_hdr_t *)packet;
-   sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
-    
-   sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-
-   uint8_t *queued_packet = curr_packet->buf;
-   sr_ip_hdr_t *q_hdr = (sr_ip_hdr_t *)(queued_packet + sizeof(sr_ethernet_hdr_t));
-   sr_icmp_hdr_t *q_icmp = (sr_icmp_hdr_t *)(queued_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-
-   /*create icmp header*/
-   memcpy(icmp_hdr, q_icmp, sizeof(sr_icmp_hdr_t) + 60);
-   icmp_hdr->icmp_type = 0; 
-   icmp_hdr->icmp_code = 0;
-   icmp_hdr->icmp_sum = 0x0000;
-   icmp_hdr->icmp_sum = cksum((uint16_t *)icmp_hdr, sizeof(sr_icmp_hdr_t) + 60);
-
-   /*create ip header*/
-   ip_hdr->ip_hl = 5; 
-   ip_hdr->ip_v = 4;  
-   ip_hdr->ip_tos = 0;
-   ip_hdr->ip_len = htons(sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t) + 60);
-   ip_hdr->ip_off = 0;
-   ip_hdr->ip_ttl = 50;
-   ip_hdr->ip_id = 0;
-   ip_hdr->ip_p = ip_protocol_icmp;
-   ip_hdr->ip_sum = 0x0000;
-   ip_hdr->ip_dst = q_hdr->ip_src;
-   char *iface_to_send = find_longest_prefix(sr, htonl(ip_hdr->ip_dst));
-   ip_hdr->ip_src = sr_get_interface(sr, iface_to_send)->ip;
-   ip_hdr->ip_sum = cksum((uint8_t *)ip_hdr, sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t) + 60);
-
-   /*create ethernet header*/
-   sr_ethernet_hdr_t *q_eth_hdr = (sr_ethernet_hdr_t *)(queued_packet);
-   memcpy(ether_hdr->ether_dhost, q_eth_hdr->ether_shost, sizeof(uint8_t) * ETHER_ADDR_LEN);
-   memcpy(ether_hdr->ether_shost, sr_get_interface(sr, iface_to_send)->addr, sizeof(uint8_t) * ETHER_ADDR_LEN);
-   ether_hdr->ether_type = htons(ethertype_ip);
-
-   printf("Sending Echo Reply\n");
-
-   printf("Sending packet over interface: %s of size: %d\n", iface_to_send, len);
-   print_hdrs(packet, len);
-   sr_send_packet(sr, packet, len, iface_to_send);
 
    free(packet);
 }
